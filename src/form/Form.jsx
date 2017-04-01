@@ -27,6 +27,19 @@ export const initialFieldState = {
   errors: [],
 }
 
+const getFieldValue = (state, fieldName, defaultValue) => {
+  return getIn(state.model, fieldName, defaultValue);
+}
+
+const updateFieldValue = (state, fieldName, value) => {
+  setIn(state.model, fieldName, value);
+  return state;
+}
+
+const getFieldState = (state, fieldName) => {
+  return state.fields[fieldName] || initialFieldState;
+}
+
 const updateFormState = (state, formState) => {
   const prevFormState = state.form;
   state.form = {
@@ -38,7 +51,7 @@ const updateFormState = (state, formState) => {
 }
 
 const updateFieldState = (state, fieldName, fieldState) => {
-  const prevFieldState = state.fields[fieldName] || initialFieldState;
+  const prevFieldState = getFieldState(state, fieldName);
   state.fields[fieldName] = {
     ...prevFieldState,
     ...fieldState
@@ -49,11 +62,10 @@ const updateFieldState = (state, fieldName, fieldState) => {
 
 const resetFieldErrors = (state) => {
   Object.keys(state.fields).forEach(fieldName => {
-    state.fields[fieldName] = {
-      ...state.fields[fieldName],
+    updateFieldState(state, fieldName, {
       valid: true,
       errors: [],
-    }
+    });
   });
 
   return state;
@@ -62,12 +74,10 @@ const resetFieldErrors = (state) => {
 const updateFieldErrors = (state, errors) => {
   errors.forEach((fieldName, errors) => {
     const valid = !errors.length;
-    const fieldState = state.fields[fieldName]
-    state.fields[fieldName] = {
-      ...fieldState,
+    updateFieldState(state, fieldName, {
       valid,
       errors,
-    }
+    });
   });
 
   return state;
@@ -112,11 +122,11 @@ class Form extends Component {
   }
 
   getFieldValue = (fieldName, defaultValue) => {
-    return getIn(this.state.model, fieldName, defaultValue);
+    return getFieldValue(this.state, fieldName, defaultValue);
   }
 
   getFieldState = (fieldName) => {
-    return this.state.fields[fieldName] || initialFieldState;
+    return getFieldState(this.state, fieldName);
   }
 
   updateField = (fieldName, value, commit = true) => {
@@ -127,7 +137,7 @@ class Form extends Component {
 
     const changed = value !== prevValue;
     if (changed) {
-      setIn(state.model, fieldName, value);
+      updateFieldValue(state, fieldName, value);
       updateFieldState(state, fieldName, { pristine: false });
     }
 
