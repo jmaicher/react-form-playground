@@ -65,7 +65,7 @@ class App extends Component {
                 </FormGroup>
 
                 <div className="row">
-                  <div className="col-md-6 col-md-push-3">
+                  <div className="col-sm-6 col-sm-push-3">
                     <button type="submit" className="wui-btn wui-btn--primary" disabled={!valid}>Submit</button>
                   </div>
                 </div>
