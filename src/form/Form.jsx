@@ -24,6 +24,7 @@ export const initialFieldState = {
   touched: false,
   pristine: true,
   valid: true,
+  asyncValidating: false,
   errors: [],
 }
 
@@ -145,8 +146,13 @@ class Form extends Component {
       updateFieldState(state, fieldName, { touched: true });
 
       resetValidState(state);
-      const errors = this.validate(state.model, fieldName);
+      const errors = this.syncValidate(state.model);
       updateValidState(state, errors);
+
+      const asyncValidation = this.asyncValidate(fieldName, value);
+      if (asyncValidation) {
+        updateFieldState(state, fieldName, { asyncValidating: true });
+      }
     }
 
     this.setState(state, () => {
@@ -155,7 +161,7 @@ class Form extends Component {
     });
   }
 
-  validate(model, fieldName) {
+  syncValidate(model) {
     const { validate } = this.props;
 
     if (!validate) {
@@ -165,6 +171,28 @@ class Form extends Component {
     const errors = new FormErrors();
     validate(model, errors);
     return errors;
+  }
+
+  asyncValidate(fieldName, value) {
+    const { asyncFieldValidators } = this.props;
+
+    const asyncValidate = asyncFieldValidators[fieldName];
+    if (!asyncValidate) {
+      return false;
+    }
+
+    const errors = new FormErrors();
+    const validation = asyncValidate(value, errors);
+    Promise.resolve(validation).then(errors => {
+      if (errors instanceof FormErrors && errors.hasAnyErrors()) {
+        const state = clone(this.state);
+        updateValidState(state, errors);
+        this.setState(state, () => {
+          const { onChange } = this.props;
+          onChange(this.state);
+        });
+      }
+    });
   }
 
   handleSubmit = (evt) => {
@@ -192,7 +220,7 @@ class Form extends Component {
   render() {
     console.debug(JSON.stringify(this.state, null, 2));
 
-    const { children, ...forwardedProps } = omit(this.props, 'model', 'validate', 'onChange', 'onSubmit');
+    const { children, ...forwardedProps } = omit(this.props, 'model', 'validate', 'asyncFieldValidators', 'onChange', 'onSubmit');
     return (
       <form
         {...forwardedProps}
@@ -209,6 +237,7 @@ class Form extends Component {
 Form.propTypes = {
   model: PropTypes.object,
   validate: PropTypes.func,
+  asyncFieldValidators: PropTypes.object,
   onChange: PropTypes.func,
   onSubmit: PropTypes.func,
 };
@@ -216,6 +245,7 @@ Form.propTypes = {
 Form.defaultProps = {
   model: {},
   validate: noop,
+  asyncFieldValidators: {},
   onChange: noop,
   onSubmit: noop
 };

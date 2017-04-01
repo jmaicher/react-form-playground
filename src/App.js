@@ -17,6 +17,14 @@ const validateUser = (user, errors) => {
   return errors;
 }
 
+const asyncFieldValidators = {
+  email: (value, errors) => {
+    return new Promise(resolve => {
+      setTimeout(() => resolve(errors.add('email', 'unique')), 1000);
+    });
+  }
+}
+
 class App extends Component {
 
   constructor(props) {
@@ -54,6 +62,7 @@ class App extends Component {
               <Form
                 model={user}
                 validate={validateUser}
+                asyncFieldValidators={asyncFieldValidators}
                 onChange={this.handleFormChange}
                 onSubmit={this.handleSubmit}
               >
@@ -62,6 +71,9 @@ class App extends Component {
                 </FormGroup>
                 <FormGroup model="lastName" label="Last name" htmlFor="lastName">
                   <TextControl model="lastName" id="lastName" />
+                </FormGroup>
+                <FormGroup model="email" label="Email" htmlFor="email">
+                  <TextControl model="email" id="email" />
                 </FormGroup>
 
                 <div className="row">
