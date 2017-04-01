@@ -1,13 +1,20 @@
 import React, { Component, PropTypes } from 'react';
+import formPropTypes from './propTypes';
 
-class Input extends Component {
+class TextControl extends Component {
+
+  componentWillMount() {
+    const { model, validate } = this.props;
+    const { registerField } = this.context.form;
+    registerField(model, validate);
+  }
 
   handleChange = (evt) => {
     const { model } = this.props;
     const { form } = this.context;
 
     const value = evt.target.value;
-    form.update(model, value);
+    form.updateFieldValue(model, value, false);
   }
 
   handleBlur = (evt) => {
@@ -15,7 +22,7 @@ class Input extends Component {
     const { form } = this.context;
 
     const value = this.normalize(evt.target.value.trim());
-    form.commit(model, value);
+    form.updateFieldValue(model, value, true);
   }
 
   normalize(value) {
@@ -26,7 +33,7 @@ class Input extends Component {
     const { model, id } = this.props;
     const { form } = this.context;
 
-    const value = form.getValue(model, '');
+    const value = form.getFieldValue(model, '');
 
     return (
       <input
@@ -42,13 +49,13 @@ class Input extends Component {
 
 }
 
-Input.contextTypes = {
-  form: PropTypes.shape({
-    getField: PropTypes.func,
-    getValue: PropTypes.func,
-    update: PropTypes.func,
-    commit: PropTypes.func,
-  })
+TextControl.propTypes = {
+  model: PropTypes.string.isRequired,
+  validate: PropTypes.arrayOf(formPropTypes.validator),
+}
+
+TextControl.contextTypes = {
+  form: formPropTypes.form,
 };
 
-export default Input;
+export default TextControl;

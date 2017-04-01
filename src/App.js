@@ -4,19 +4,18 @@ import Form from './form/Form';
 import FormGroup from './form/FormGroup';
 import TextControl from './form/TextControl';
 
-const validate = (user) => {
-  const errors = {};
+const validator = (key, fn) => ({
+  key: key,
+  validate: (...args) => fn(...args),
+});
 
-  if(!user.firstName) {
-    errors.firstName = { required: true }
-  }
+const required = validator('required', (value) => {
+  return value && !!value.length;
+});
 
-  if(!user.lastName) {
-    errors.lastName = { required: true }
-  }
-
-  return errors;
-}
+const minLength = len => validator('minLength', (value) => {
+  return value && value.length >= len
+});
 
 class App extends Component {
 
@@ -44,12 +43,15 @@ class App extends Component {
               <h2 className="panel-title">Simple React Form</h2>
             </div>
             <div className="panel-body">
-              <Form initialModel={initialUser} onChange={this.handleUserChange} validate={validate} className="wui-bs-form wui-bs-form--horizontal">
-                <FormGroup label="First name" htmlFor="firstName">
-                  <TextControl model="firstName" id="firstName" />
+              <Form
+                initialModel={initialUser}
+                onChange={this.handleUserChange}
+              >
+                <FormGroup model="firstName" label="First name" htmlFor="firstName">
+                  <TextControl model="firstName" id="firstName" validate={[ required ]} />
                 </FormGroup>
-                <FormGroup label="Last name" htmlFor="lastName">
-                  <TextControl model="lastName" id="lastName" />
+                <FormGroup model="lastName" label="Last name" htmlFor="lastName">
+                  <TextControl model="lastName" id="lastName" validate={[ required, minLength(3) ]} />
                 </FormGroup>
               </Form>
             </div>

@@ -1,9 +1,11 @@
-import React, { Component } from 'react';
+import React, { Component, PropTypes } from 'react';
+
+import formPropTypes from './propTypes';
+import Errors from './Errors';
 
 class FormGroup extends Component {
-
   render() {
-    const { label, htmlFor, children } = this.props;
+    const { model, label, htmlFor, children } = this.props;
 
     return (
       <div className="form-group row">
@@ -15,11 +17,21 @@ class FormGroup extends Component {
         </label>
         <div className="col-sm-6">
           {children}
+          <Errors model={model} />
         </div>
       </div>
     )
   }
-
 }
+
+FormGroup.propTypes = {
+  model: PropTypes.string,
+  label: PropTypes.string,
+  htmlFor: PropTypes.string,
+};
+
+FormGroup.childContextTypes = {
+  form: formPropTypes.form,
+};
 
 export default FormGroup;
