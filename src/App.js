@@ -23,22 +23,25 @@ class App extends Component {
     super(props);
 
     this.state = {
-      initialUser: {},
       user: {},
       valid: false,
     }
   }
 
-  handleUserChange = (user) => {
-    this.setState({ user });
+  handleFormChange = ({ model, form: { valid } }) => {
+    this.setState({ user: model, valid });
   }
 
-  handleValidStateChange = (valid) => {
-    this.setState({ valid })
+  handleSubmit = (model) => {
+    console.log('Submitting', model);
+
+    return new Promise(resolve => {
+      setTimeout(resolve, 1000);
+    });
   }
 
   render() {
-    const { user, valid, initialUser } = this.state;
+    const { user, valid } = this.state;
 
     return (
       <div className="wui-page">
@@ -49,10 +52,10 @@ class App extends Component {
             </div>
             <div className="panel-body">
               <Form
-                initialModel={initialUser}
+                model={user}
                 validate={validateUser}
-                onValidStateChange={this.handleValidStateChange}
-                onChange={this.handleUserChange}
+                onChange={this.handleFormChange}
+                onSubmit={this.handleSubmit}
               >
                 <FormGroup model="firstName" label="First name" htmlFor="firstName">
                   <TextControl model="firstName" id="firstName" />

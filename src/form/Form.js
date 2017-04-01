@@ -1,18 +1,12 @@
 import React, { Component, PropTypes } from 'react';
 import getIn from 'lodash.get';
 import setIn from 'lodash.set';
-import clone from 'lodash.clonedeep';
 import omit from 'lodash.omit';
 
 import formPropTypes from './propTypes';
+import * as s from './state';
 
 const noop = () => { };
-
-const initialFieldState = {
-  pristine: true,
-  valid: true,
-  errors: [],
-}
 
 class FormErrors {
   errors = {};
@@ -44,59 +38,36 @@ class Form extends Component {
   constructor(props) {
     super(props);
 
-    this.state = {
-      initialModel: {},
-      model: {},
-      formState: {
-        pristine: true,
-        valid: true,
-        errors: []
-      },
-      // path -> state
-      fieldState: {},
-    }
+    this.state = s.initialState();
   }
 
-  componentWillMount() {
-    const { initialModel } = this.props;
-
-    this.setState({
-      initialModel: clone(initialModel),
-      model: clone(initialModel)
-    });
+  componentWillReceiveProps(nextProps) {
+    const { model } = nextProps;
+    if (model !== this.state.model) {
+      const state = s.initialState(model);
+      this.setState(state);
+    }
   }
 
   getFieldValue = (fieldName, defaultValue) => {
-    return getIn(this.state.model, fieldName, defaultValue);
+    return s.getFieldValue(this.state, fieldName, defaultValue);
   }
 
   getFieldState = (fieldName) => {
-    return this.state.fieldState[fieldName] || initialFieldState;
+    return s.getFieldState(this.state, fieldName);
   }
 
   updateFieldValue = (fieldName, value, validate = true) => {
-    const model = clone(this.state.model);
-    setIn(model, fieldName, value);
+    let state = s.updateField(this.state, fieldName, value);
 
-    const fieldState = {
-      ...this.state.fieldState,
-      [fieldName]: {
-        ...this.getFieldState(fieldName),
-        pristine: false,
-      }
-    };
-
-    const formState = {
-      ...this.state.formState,
-      pristine: false,
+    if (validate) {
+      const errors = this.validate(state.model);
+      state = s.updateWithValidationErrors(this.state, errors);
     }
 
-    this.setState({ model, fieldState, formState }, () => {
-      if (validate) {
-        this.validate(fieldName);
-      }
-
-      this.props.onChange(model);
+    this.setState(state, () => {
+      const { onChange } = this.props;
+      onChange(this.state);
     });
   }
 
@@ -110,36 +81,19 @@ class Form extends Component {
 
     const errors = new FormErrors();
     validate(model, errors);
-
-    const valid = errors.isEmpty;
-    const validStateChanged = this.state.formState.valid !== valid;
-
-    if (valid) {
-      this.setState({
-        formState: {
-          ...this.state.formState,
-          valid: true,
-          errors: []
-        }
-      });
-    } else {
-      this.setState({
-        formState: {
-          ...this.state.formState,
-          valid: false,
-          errors: errors.getAll()
-        }
-      });
-    }
-
-    if(validStateChanged) {
-      const { onValidStateChange } = this.props;
-      onValidStateChange(valid);
-    }
+    return errors;
   }
 
   handleSubmit = (evt) => {
     evt.preventDefault();
+    const { onSubmit } = this.props;
+    const { model, form } = this.state;
+
+    if (!form.valid) {
+      return;
+    }
+
+    onSubmit(model);
   }
 
   getChildContext() {
@@ -154,7 +108,7 @@ class Form extends Component {
 
   render() {
     console.log(this.state);
-    const { children, ...forwardedProps } = omit(this.props, 'initialModel', 'onChange', 'onValidStateChange', 'validate');
+    const { children, ...forwardedProps } = omit(this.props, 'model', 'onChange', 'onValidStateChange', 'validate');
     return (
       <form
         {...forwardedProps}
@@ -169,16 +123,16 @@ class Form extends Component {
 }
 
 Form.propTypes = {
-  initialModel: PropTypes.object,
-  onChange: PropTypes.func,
-  onValidStateChange: PropTypes.func,
+  model: PropTypes.object,
   validate: PropTypes.func,
+  onChange: PropTypes.func,
+  onSubmit: PropTypes.func,
 };
 
 Form.defaultProps = {
-  initialModel: {},
+  model: {},
   onChange: noop,
-  onValidStateChange: noop,
+  onSubmit: noop
 };
 
 Form.childContextTypes = {
