@@ -1,21 +1,21 @@
 import React, { Component } from 'react';
+import getIn from 'lodash.get';
 
 import Form from './form/Form';
 import FormGroup from './form/FormGroup';
 import TextControl from './form/TextControl';
 
-const validator = (key, fn) => ({
-  key: key,
-  validate: (...args) => fn(...args),
-});
+const validateUser = (user, errors) => {
+  const required = ['firstName', 'lastName'];
+  required.forEach(fieldName => {
+    const value = getIn(user, fieldName);
+    if (!value || !value.length) {
+      errors.add(fieldName, 'required');
+    }
+  });
 
-const required = validator('required', (value) => {
-  return value && !!value.length;
-});
-
-const minLength = len => validator('minLength', (value) => {
-  return value && value.length >= len
-});
+  return errors;
+}
 
 class App extends Component {
 
@@ -25,6 +25,7 @@ class App extends Component {
     this.state = {
       initialUser: {},
       user: {},
+      valid: false,
     }
   }
 
@@ -32,8 +33,12 @@ class App extends Component {
     this.setState({ user });
   }
 
+  handleValidStateChange = (valid) => {
+    this.setState({ valid })
+  }
+
   render() {
-    const { user, initialUser } = this.state;
+    const { user, valid, initialUser } = this.state;
 
     return (
       <div className="wui-page">
@@ -45,14 +50,22 @@ class App extends Component {
             <div className="panel-body">
               <Form
                 initialModel={initialUser}
+                validate={validateUser}
+                onValidStateChange={this.handleValidStateChange}
                 onChange={this.handleUserChange}
               >
                 <FormGroup model="firstName" label="First name" htmlFor="firstName">
-                  <TextControl model="firstName" id="firstName" validate={[ required ]} />
+                  <TextControl model="firstName" id="firstName" />
                 </FormGroup>
                 <FormGroup model="lastName" label="Last name" htmlFor="lastName">
-                  <TextControl model="lastName" id="lastName" validate={[ required, minLength(3) ]} />
+                  <TextControl model="lastName" id="lastName" />
                 </FormGroup>
+
+                <div className="row">
+                  <div className="col-md-6 col-md-push-3">
+                    <button type="submit" className="wui-btn wui-btn--primary" disabled={!valid}>Submit</button>
+                  </div>
+                </div>
               </Form>
             </div>
           </div>

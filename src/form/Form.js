@@ -14,18 +14,43 @@ const initialFieldState = {
   errors: [],
 }
 
+class FormErrors {
+  errors = {};
+
+  add(fieldName, error) {
+    const fieldErrors = [...this.get(fieldName)];
+    fieldErrors.push(error);
+    setIn(this.errors, fieldName, fieldErrors);
+
+    return this;
+  }
+
+  get(fieldName) {
+    return getIn(this.errors, fieldName, []);
+  }
+
+  getAll() {
+    return this.errors;
+  }
+
+  get isEmpty() {
+    return !Object.keys(this.errors)
+      .find(fieldName => this.errors[fieldName] && this.errors[fieldName].length > 0);
+  }
+}
+
 class Form extends Component {
 
   constructor(props) {
     super(props);
-
-    this.fieldValidators = {};
 
     this.state = {
       initialModel: {},
       model: {},
       formState: {
         pristine: true,
+        valid: true,
+        errors: []
       },
       // path -> state
       fieldState: {},
@@ -41,88 +66,85 @@ class Form extends Component {
     });
   }
 
-  getFieldValue = (path, defaultValue) => {
-    return getIn(this.state.model, path, defaultValue);
+  getFieldValue = (fieldName, defaultValue) => {
+    return getIn(this.state.model, fieldName, defaultValue);
   }
 
-  getFieldState = (path) => {
-    return this.state.fieldState[path] || initialFieldState;
+  getFieldState = (fieldName) => {
+    return this.state.fieldState[fieldName] || initialFieldState;
   }
 
-  updateFieldValue = (path, value, validate = true) => {
+  updateFieldValue = (fieldName, value, validate = true) => {
     const model = clone(this.state.model);
-    setIn(model, path, value);
+    setIn(model, fieldName, value);
 
-    const fields = {
+    const fieldState = {
       ...this.state.fieldState,
-      [path]: {
-        ...this.getFieldState(path),
-        pristine: false
+      [fieldName]: {
+        ...this.getFieldState(fieldName),
+        pristine: false,
       }
     };
 
-    this.setState({ model, fields }, () => {
+    const formState = {
+      ...this.state.formState,
+      pristine: false,
+    }
+
+    this.setState({ model, fieldState, formState }, () => {
       if (validate) {
-        this.validateField(path);
+        this.validate(fieldName);
       }
 
       this.props.onChange(model);
     });
   }
 
-  registerField = (path, validators) => {
-    this.fieldValidators[path] = validators;
-  }
+  validate(fieldName) {
+    const { model } = this.state;
+    const { validate } = this.props;
 
-  unregisterField(path) {
-    const fieldState = { ...this.state.fieldState };
-    delete fieldState[path];
-    this.setState({ fieldState });
-
-    delete this.fieldValidators[path];
-  }
-
-  validateField(path) {
-    const value = this.getFieldValue(path);
-    let fieldState = this.getFieldState(path);
-
-    const validators = this.fieldValidators[path];
-
-    const errors = [];
-    validators.forEach(v => {
-      if (!v.validate(value)) {
-        errors.push({ key: v.key });
-      }
-    });
-
-    const isFieldValid = !errors.length;
-    if (isFieldValid) {
-      fieldState = {
-        ...fieldState,
-        valid: true,
-        errors: []
-      }
-    } else {
-      fieldState = {
-        ...fieldState,
-        valid: false,
-        errors: errors
-      }
+    if (!validate) {
+      return;
     }
 
-    this.setState({
-      fieldState: {
-        ...this.state.fieldState,
-        [path]: fieldState
-      }
-    });
+    const errors = new FormErrors();
+    validate(model, errors);
+
+    const valid = errors.isEmpty;
+    const validStateChanged = this.state.formState.valid !== valid;
+
+    if (valid) {
+      this.setState({
+        formState: {
+          ...this.state.formState,
+          valid: true,
+          errors: []
+        }
+      });
+    } else {
+      this.setState({
+        formState: {
+          ...this.state.formState,
+          valid: false,
+          errors: errors.getAll()
+        }
+      });
+    }
+
+    if(validStateChanged) {
+      const { onValidStateChange } = this.props;
+      onValidStateChange(valid);
+    }
+  }
+
+  handleSubmit = (evt) => {
+    evt.preventDefault();
   }
 
   getChildContext() {
     return {
       form: {
-        registerField: this.registerField,
-        unregisterField: this.unregisterField,
         getFieldState: this.getFieldState,
         getFieldValue: this.getFieldValue,
         updateFieldValue: this.updateFieldValue,
@@ -131,11 +153,13 @@ class Form extends Component {
   }
 
   render() {
-    const { children, ...forwardedProps } = omit(this.props, 'initialModel', 'onChange', 'validate');
+    console.log(this.state);
+    const { children, ...forwardedProps } = omit(this.props, 'initialModel', 'onChange', 'onValidStateChange', 'validate');
     return (
       <form
-        className="wui-bs-form wui-bs-form--horizontal"
         {...forwardedProps}
+        className="wui-bs-form wui-bs-form--horizontal"
+        onSubmit={this.handleSubmit}
       >
         {children}
       </form>
@@ -147,12 +171,14 @@ class Form extends Component {
 Form.propTypes = {
   initialModel: PropTypes.object,
   onChange: PropTypes.func,
+  onValidStateChange: PropTypes.func,
   validate: PropTypes.func,
 };
 
 Form.defaultProps = {
   initialModel: {},
-  onChange: noop
+  onChange: noop,
+  onValidStateChange: noop,
 };
 
 Form.childContextTypes = {

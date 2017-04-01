@@ -3,12 +3,6 @@ import formPropTypes from './propTypes';
 
 class TextControl extends Component {
 
-  componentWillMount() {
-    const { model, validate } = this.props;
-    const { registerField } = this.context.form;
-    registerField(model, validate);
-  }
-
   handleChange = (evt) => {
     const { model } = this.props;
     const { form } = this.context;
@@ -51,7 +45,6 @@ class TextControl extends Component {
 
 TextControl.propTypes = {
   model: PropTypes.string.isRequired,
-  validate: PropTypes.arrayOf(formPropTypes.validator),
 }
 
 TextControl.contextTypes = {
