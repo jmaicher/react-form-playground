@@ -1,46 +1,142 @@
 import React, { Component, PropTypes } from 'react';
+import clone from 'lodash.clonedeep';
+import getIn from 'lodash.get';
+import setIn from 'lodash.set';
 import omit from 'lodash.omit';
 
 import formPropTypes from './propTypes';
 import FormErrors from './util/formErrors';
-import * as s from './state';
 
 const noop = () => { };
+
+export const initialState = (model = {}) => ({
+  initialModel: {},
+  model: {},
+  form: {
+    valid: undefined,
+    // fieldName -> [error]
+    errors: {},
+  },
+  fields: {}
+});
+
+export const initialFieldState = {
+  touched: false,
+  pristine: true,
+  valid: true,
+  errors: [],
+}
+
+const updateFormState = (state, formState) => {
+  const prevFormState = state.form;
+  state.form = {
+    ...prevFormState,
+    ...formState,
+  }
+
+  return state;
+}
+
+const updateFieldState = (state, fieldName, fieldState) => {
+  const prevFieldState = state.fields[fieldName] || initialFieldState;
+  state.fields[fieldName] = {
+    ...prevFieldState,
+    ...fieldState
+  }
+
+  return state;
+}
+
+const resetFieldErrors = (state) => {
+  Object.keys(state.fields).forEach(fieldName => {
+    state.fields[fieldName] = {
+      ...state.fields[fieldName],
+      valid: true,
+      errors: [],
+    }
+  });
+
+  return state;
+}
+
+const updateFieldErrors = (state, errors) => {
+  errors.forEach((fieldName, errors) => {
+    const valid = !errors.length;
+    const fieldState = state.fields[fieldName]
+    state.fields[fieldName] = {
+      ...fieldState,
+      valid,
+      errors,
+    }
+  });
+
+  return state;
+}
+
+const updateValidState = (state, errors) => {
+  const valid = !errors.hasAnyErrors();
+
+  updateFormState(state, {
+    valid,
+    errors: valid ? errors.getAll() : {},
+  });
+
+  updateFieldErrors(state, errors);
+}
+
+const resetValidState = (state) => {
+  updateFormState(state, {
+    valid: true,
+    errors: {},
+  });
+
+  resetFieldErrors(state);
+
+  return state;
+}
 
 class Form extends Component {
 
   constructor(props) {
     super(props);
 
-    this.state = s.initialState();
+    this.state = initialState();
   }
 
   componentWillReceiveProps(nextProps) {
     const { model } = nextProps;
     if (model !== this.state.model) {
-      const state = s.initialState(model);
+      const state = initialState(model);
       this.setState(state);
     }
   }
 
   getFieldValue = (fieldName, defaultValue) => {
-    return s.getFieldValue(this.state, fieldName, defaultValue);
+    return getIn(this.state.model, fieldName, defaultValue);
   }
 
   getFieldState = (fieldName) => {
-    return s.getFieldState(this.state, fieldName);
+    return this.state.fields[fieldName] || initialFieldState;
   }
 
   updateField = (fieldName, value, commit = true) => {
-    let state = s.updateField(this.state, fieldName, value);
+    const prevState = this.state;
+    const prevValue = getIn(prevState.model, fieldName);
+
+    const state = clone(prevState);
+
+    const changed = value !== prevValue;
+    if (changed) {
+      setIn(state.model, fieldName, value);
+      updateFieldState(state, fieldName, { pristine: false });
+    }
 
     if (commit) {
-      state = s.updateFieldState(state, fieldName, {
-        touched: true,
-      });
+      updateFieldState(state, fieldName, { touched: true });
 
-      const errors = this.validate(state.model);
-      state = s.updateWithValidationErrors(state, errors);
+      resetValidState(state);
+      const errors = this.validate(state.model, fieldName);
+      updateValidState(state, errors);
     }
 
     this.setState(state, () => {
@@ -49,8 +145,7 @@ class Form extends Component {
     });
   }
 
-  validate(fieldName) {
-    const { model } = this.state;
+  validate(model, fieldName) {
     const { validate } = this.props;
 
     if (!validate) {
@@ -85,8 +180,9 @@ class Form extends Component {
   }
 
   render() {
-    console.log(this.state);
-    const { children, ...forwardedProps } = omit(this.props, 'model', 'onChange', 'onValidStateChange', 'validate');
+    console.debug(JSON.stringify(this.state, null, 2));
+
+    const { children, ...forwardedProps } = omit(this.props, 'model', 'validate', 'onChange', 'onSubmit');
     return (
       <form
         {...forwardedProps}
