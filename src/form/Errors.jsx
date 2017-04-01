@@ -7,10 +7,10 @@ class Errors extends Component {
     const { form } = this.context;
 
     const state = form.getFieldState(model);
-    const { valid, errors } = state;
+    const { touched, valid, errors } = state;
 
-    const hasErrors = !valid && errors.length;
-    if(!hasErrors) {
+    const showErrors = touched && (!valid && errors.length);
+    if(!showErrors) {
       return null;
     }
 

@@ -8,7 +8,7 @@ class TextControl extends Component {
     const { form } = this.context;
 
     const value = evt.target.value;
-    form.updateFieldValue(model, value, false);
+    form.updateField(model, value, false);
   }
 
   handleBlur = (evt) => {
@@ -16,7 +16,7 @@ class TextControl extends Component {
     const { form } = this.context;
 
     const value = this.normalize(evt.target.value.trim());
-    form.updateFieldValue(model, value, true);
+    form.updateField(model, value);
   }
 
   normalize(value) {

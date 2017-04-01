@@ -4,6 +4,6 @@ export default {
   form: PropTypes.shape({
     getFieldState: PropTypes.func,
     getFieldValue: PropTypes.func,
-    updateFieldValue: PropTypes.func,
+    updateField: PropTypes.func,
   })
 }

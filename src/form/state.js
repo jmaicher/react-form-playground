@@ -6,7 +6,6 @@ export const initialState = (model = {}) => ({
   initialModel: {},
   model: {},
   form: {
-    submitted: false,
     valid: undefined,
     errors: [],
   },
@@ -14,6 +13,7 @@ export const initialState = (model = {}) => ({
 });
 
 export const initialFieldState = {
+  touched: false,
   pristine: true,
   valid: true,
   errors: [],
@@ -35,7 +35,7 @@ export const updateFieldState = (prevState, fieldName, fieldState) => {
     ...state.fields,
     [fieldName]: {
       ...prevFieldState,
-      fieldState,
+      ...fieldState,
     }
   }
 

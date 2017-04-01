@@ -31,12 +31,16 @@ class Form extends Component {
     return s.getFieldState(this.state, fieldName);
   }
 
-  updateFieldValue = (fieldName, value, validate = true) => {
+  updateField = (fieldName, value, commit = true) => {
     let state = s.updateField(this.state, fieldName, value);
 
-    if (validate) {
+    if (commit) {
+      state = s.updateFieldState(state, fieldName, {
+        touched: true,
+      });
+
       const errors = this.validate(state.model);
-      state = s.updateWithValidationErrors(this.state, errors);
+      state = s.updateWithValidationErrors(state, errors);
     }
 
     this.setState(state, () => {
@@ -75,7 +79,7 @@ class Form extends Component {
       form: {
         getFieldState: this.getFieldState,
         getFieldValue: this.getFieldValue,
-        updateFieldValue: this.updateFieldValue,
+        updateField: this.updateField,
       }
     }
   }
