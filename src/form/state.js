@@ -24,13 +24,13 @@ export const getFieldValue = (state, fieldName, defaultValue) => {
 }
 
 export const getFieldState = (state, fieldName) => {
-  return getIn(state.fieldStates, fieldName, initialFieldState);
+  return getIn(state.fields, fieldName, initialFieldState);
 }
 
 export const updateFieldState = (prevState, fieldName, fieldState) => {
   const state = clone(prevState);
 
-  const prevFieldState = getFieldState(fieldName);
+  const prevFieldState = getFieldState(state, fieldName);
   state.fields = {
     ...state.fields,
     [fieldName]: {
@@ -56,10 +56,41 @@ export const updateField = (prevState, fieldName, value) => {
   return state;
 }
 
-export const updateWithValidationErrors = (prevState, errors) => {
-  const state = clone(prevState);
+export const resetFieldErrors = (prevState) => {
+  let state = clone(prevState);
 
-  const valid = errors.isEmpty;
+  Object.keys(state.fields).forEach(fieldName => {
+    state.fields[fieldName] = {
+      ...state.fields[fieldName],
+      valid: true,
+      errors: [],
+    }
+  });
+
+  return state;
+}
+
+export const setFieldErrors = (prevState, errors) => {
+  let state = clone(prevState);
+
+  errors.forEach((fieldName, errors) => {
+    const valid = !errors.length;
+    const fieldState = getFieldState(state, fieldName);
+    state.fields[fieldName] = {
+      ...fieldState,
+      valid,
+      errors,
+    }
+  });
+
+  return state;
+}
+
+export const updateWithValidationErrors = (prevState, errors) => {
+  let state = clone(prevState);
+  state = resetFieldErrors(state);
+
+  const valid = !errors.hasAnyErrors();
   if(valid) {
     state.form = {
       ...state.form,
@@ -72,6 +103,8 @@ export const updateWithValidationErrors = (prevState, errors) => {
       valid: false,
       errors: errors.getAll()
     }
+
+    state = setFieldErrors(state, errors);
   }
 
   return state;

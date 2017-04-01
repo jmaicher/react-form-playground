@@ -17,7 +17,7 @@ class Errors extends Component {
     const firstError = errors[0];
     return (
       <p className="wui-message wui-message--error">
-        {messages[firstError.key] || firstError.key}
+        {messages[firstError] || firstError}
       </p>
     );
   }

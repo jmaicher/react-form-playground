@@ -1,37 +1,11 @@
 import React, { Component, PropTypes } from 'react';
-import getIn from 'lodash.get';
-import setIn from 'lodash.set';
 import omit from 'lodash.omit';
 
 import formPropTypes from './propTypes';
+import FormErrors from './util/formErrors';
 import * as s from './state';
 
 const noop = () => { };
-
-class FormErrors {
-  errors = {};
-
-  add(fieldName, error) {
-    const fieldErrors = [...this.get(fieldName)];
-    fieldErrors.push(error);
-    setIn(this.errors, fieldName, fieldErrors);
-
-    return this;
-  }
-
-  get(fieldName) {
-    return getIn(this.errors, fieldName, []);
-  }
-
-  getAll() {
-    return this.errors;
-  }
-
-  get isEmpty() {
-    return !Object.keys(this.errors)
-      .find(fieldName => this.errors[fieldName] && this.errors[fieldName].length > 0);
-  }
-}
 
 class Form extends Component {
 
@@ -131,6 +105,7 @@ Form.propTypes = {
 
 Form.defaultProps = {
   model: {},
+  validate: noop,
   onChange: noop,
   onSubmit: noop
 };
