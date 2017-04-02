@@ -1,7 +1,7 @@
 import React, { Component, PropTypes } from 'react';
 import formPropTypes from './propTypes';
 
-class TextControl extends Component {
+class SelectControl extends Component {
 
   handleChange = (evt) => {
     const { model } = this.props;
@@ -11,45 +11,32 @@ class TextControl extends Component {
     form.updateField(model, value, false);
   }
 
-  handleBlur = (evt) => {
-    const { model } = this.props;
-    const { form } = this.context;
-
-    const value = this.normalize(evt.target.value.trim());
-    form.updateField(model, value);
-  }
-
-  normalize(value) {
-    return value.trim();
-  }
-
   render() {
-    const { model, ...forwardedProps } = this.props;
+    const { children, model, ...forwardedProps } = this.props;
     const { form } = this.context;
 
     const value = form.getFieldValue(model, '');
 
     return (
-      <input
-        type="text"
+      <select
         className="form-control"
-        autoComplete="off"
         {...forwardedProps}
         value={value}
         onChange={this.handleChange}
-        onBlur={this.handleBlur}
-      />
+      >
+        {children}
+      </select>
     );
   }
 
 }
 
-TextControl.propTypes = {
+SelectControl.propTypes = {
   model: PropTypes.string.isRequired,
 }
 
-TextControl.contextTypes = {
+SelectControl.contextTypes = {
   form: formPropTypes.form,
 };
 
-export default TextControl;
+export default SelectControl;
