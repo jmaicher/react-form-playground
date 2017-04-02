@@ -5,22 +5,32 @@ import Form from './form/Form';
 import FormGroup from './form/FormGroup';
 import TextControl from './form/TextControl';
 
-const validateUser = (user, errors) => {
+import FormErrorBuilder from './form/utils/formErrorBuilder';
+
+const validateUser = (user) => {
+  const errors = new FormErrorBuilder();
+
   const required = ['firstName', 'lastName'];
   required.forEach(fieldName => {
     const value = getIn(user, fieldName);
     if (!value || !value.length) {
-      errors.add(fieldName, 'required');
+      errors.addFieldError(fieldName, 'required');
     }
   });
 
-  return errors;
+  return errors.getErrors();
 }
 
-const asyncFieldValidators = {
-  email: (value, errors) => {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(errors.add('email', 'unique')), 1000);
+const asyncValidateField = {
+  email: (value) => {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        if(value === 'mail@jmaicher.de') {
+          resolve();
+        } else {
+          reject(['unique']);
+        }
+      }, 1000);
     });
   }
 }
@@ -62,7 +72,7 @@ class App extends Component {
               <Form
                 model={user}
                 validate={validateUser}
-                asyncFieldValidators={asyncFieldValidators}
+                asyncValidateField={asyncValidateField}
                 onChange={this.handleFormChange}
                 onSubmit={this.handleSubmit}
               >

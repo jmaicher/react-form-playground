@@ -7,14 +7,14 @@ class Errors extends Component {
     const { form } = this.context;
 
     const state = form.getFieldState(model);
-    const { touched, valid, errors } = state;
+    const { touched, valid, syncErrors, asyncErrors } = state;
 
-    const showErrors = touched && (!valid && errors.length);
+    const showErrors = touched && (!valid && (syncErrors.length || asyncErrors.length));
     if(!showErrors) {
       return null;
     }
 
-    const firstError = errors[0];
+    const firstError = syncErrors.length ? syncErrors[0] : asyncErrors[0];
     return (
       <p className="wui-message wui-message--error">
         {messages[firstError] || firstError}

@@ -5,7 +5,6 @@ import setIn from 'lodash.set';
 import omit from 'lodash.omit';
 
 import formPropTypes from './propTypes';
-import FormErrors from './util/formErrors';
 
 const noop = () => { };
 
@@ -13,19 +12,22 @@ export const initialState = (model = {}) => ({
   initialModel: {},
   model: {},
   form: {
-    valid: undefined,
-    // fieldName -> [error]
-    errors: {},
+    syncValid: true,
+    asyncValid: true,
+    valid: true, // = syncValid && asyncValid
   },
-  fields: {}
+  fields: {},
 });
 
 export const initialFieldState = {
   touched: false,
   pristine: true,
-  valid: true,
+  syncValid: true,
+  asyncValid: true,
   asyncValidating: false,
-  errors: [],
+  valid: true, // = syncValid && asyncValid
+  syncErrors: [],
+  asyncErrors: [],
 }
 
 const getFieldValue = (state, fieldName, defaultValue) => {
@@ -61,49 +63,155 @@ const updateFieldState = (state, fieldName, fieldState) => {
   return state;
 }
 
-const resetFieldErrors = (state) => {
+const hasAsyncFieldErrors = state => {
+  return !Object.keys(state.fields)
+    .find(fieldName => state.fields[fieldName].asyncValid);
+}
+
+const hasSyncFieldErrors = state => {
+  return !Object.keys(state.fields)
+    .find(fieldName => state.fields[fieldName].syncValid);
+}
+
+/**
+ * Checks whether the form has any sync field errors and updates the valid state of the form correspondingly.
+ *
+ * @param {Object} state
+ */
+const invalidateSyncFormValidState = state => {
+  const syncValid = !hasSyncFieldErrors(state);
+  updateFormState(state, {
+    syncValid,
+    valid: syncValid && state.form.asyncValid,
+  });
+
+  return state;
+}
+
+/**
+ *
+ * @param {Object} state
+ * @param {String} fieldName
+ */
+const resetSyncFieldValidState = (state, fieldName, shouldInvalidateSyncFormValidState = true) => {
+  const fieldState = state.fields[fieldName];
+  updateFieldState(state, fieldName, {
+    syncValid: true,
+    syncErrors: [],
+    valid: fieldState.asyncValid,
+  });
+
+  if (shouldInvalidateSyncFormValidState) {
+    invalidateSyncFormValidState(state);
+  }
+}
+/**
+ * @param {Object} state
+ */
+const resetSyncFormValidState = state => {
   Object.keys(state.fields).forEach(fieldName => {
-    updateFieldState(state, fieldName, {
-      valid: true,
-      errors: [],
-    });
+    const shouldInvalidateSyncFormValidState = false;
+    resetSyncFieldValidState(state, fieldName, shouldInvalidateSyncFormValidState);
   });
-
-  return state;
-}
-
-const updateFieldErrors = (state, errors) => {
-  errors.forEach((fieldName, errors) => {
-    const valid = !errors.length;
-    updateFieldState(state, fieldName, {
-      valid,
-      errors,
-    });
-  });
-
-  return state;
-}
-
-const updateValidState = (state, errors) => {
-  const valid = !errors.hasAnyErrors();
 
   updateFormState(state, {
-    valid,
-    errors: valid ? errors.getAll() : {},
+    syncValid: true,
+    valid: state.form.asyncValid,
   });
-
-  updateFieldErrors(state, errors);
-}
-
-const resetValidState = (state) => {
-  updateFormState(state, {
-    valid: true,
-    errors: {},
-  });
-
-  resetFieldErrors(state);
 
   return state;
+}
+
+/**
+ * @param {Object} state
+ * @param {String} fieldName
+ * @param {Array<String>} syncErrors
+ * @param {Boolean} shouldInvalidateSyncFormValidState
+ */
+const updateSyncFieldValidStateWithErrors = (state, fieldName, syncErrors, shouldInvalidateSyncFormValidState = true) => {
+  const syncValid = !syncErrors || !syncErrors.length;
+  const fieldState = getFieldState(state, fieldName);
+  updateFieldState(state, fieldName, {
+    syncValid,
+    syncErrors: !syncValid ? (syncErrors || []) : [],
+    valid: syncValid && fieldState.asyncValid,
+  });
+
+  if (shouldInvalidateSyncFormValidState) {
+    invalidateSyncFormValidState(state);
+  }
+
+  return state;
+}
+
+/**
+ * @param {Object} state
+ * @param {Object<String, Array>} syncErrors
+ */
+const updateSyncFormValidStateWithErrors = (state, syncErrors) => {
+  Object.keys(syncErrors).forEach(fieldName => {
+    const shouldInvalidateSyncFormValidState = false;
+    updateSyncFieldValidStateWithErrors(state, fieldName, syncErrors[fieldName], shouldInvalidateSyncFormValidState)
+  });
+
+  invalidateSyncFormValidState(state);
+
+  return state;
+}
+
+/**
+ * Checks whether the form has any async field errors and updates the valid state of the form correspondingly.
+ *
+ * @param {Object} state
+ */
+const invalidateAsyncFormValidState = state => {
+  const asyncValid = !hasAsyncFieldErrors(state);
+  updateFormState(state, {
+    asyncValid,
+    valid: asyncValid && state.form.syncValid,
+  });
+
+  return state;
+}
+
+
+/**
+ * @param {Object} state
+ * @param {String} fieldName
+ * @param {Boolean} shouldInvalidateAsyncFormValidState
+ */
+const resetAsyncFieldValidState = (state, fieldName, shouldInvalidateAsyncFormValidState = true) => {
+  const fieldState = state.fields[fieldName];
+  updateFieldState(state, fieldName, {
+    asyncValid: true,
+    asyncErrors: [],
+    valid: fieldState.syncValid,
+  });
+
+  if (shouldInvalidateAsyncFormValidState) {
+    invalidateAsyncFormValidState(state);
+  }
+}
+
+/**
+ *
+ * @param {Object} state
+ * @param {String} fieldName
+ * @param {Array<String>} asyncErrors
+ * @param {Boolean} shouldInvalidateAsyncFormValidState
+ */
+const updateAsyncFieldValidStateWithErrors = (state, fieldName, asyncErrors, shouldInvalidateAsyncFormValidState = true) => {
+  const asyncValid = !asyncErrors || !asyncErrors.length;
+  const fieldState = getFieldState(state, fieldName);
+  updateFieldState(state, fieldName, {
+    asyncValid,
+    asyncErrors: !asyncValid ? (asyncErrors || []) : [],
+    valid: asyncValid && fieldState.syncValid,
+  });
+
+  if (shouldInvalidateAsyncFormValidState) {
+    invalidateAsyncFormValidState(state);
+  }
 }
 
 class Form extends Component {
@@ -114,11 +222,22 @@ class Form extends Component {
     this.state = initialState();
   }
 
+  setFormState(state) {
+    // console.debug(JSON.stringify(state, null, 2));
+
+    this.setState(state, () => {
+      const { onChange } = this.props;
+      onChange(this.state);
+    });
+  }
+
   componentWillReceiveProps(nextProps) {
     const { model } = nextProps;
     if (model !== this.state.model) {
-      const state = initialState(model);
-      this.setState(state);
+      let state = initialState(model);
+      state = this.syncValidate(state);
+
+      this.setFormState(state);
     }
   }
 
@@ -144,54 +263,57 @@ class Form extends Component {
 
     if (commit) {
       updateFieldState(state, fieldName, { touched: true });
-
-      resetValidState(state);
-      const errors = this.syncValidate(state.model);
-      updateValidState(state, errors);
-
-      const asyncValidation = this.asyncValidate(fieldName, value);
-      if (asyncValidation) {
-        updateFieldState(state, fieldName, { asyncValidating: true });
-      }
+      this.syncValidate(state);
+      this.asyncValidateField(state, fieldName);
     }
 
-    this.setState(state, () => {
-      const { onChange } = this.props;
-      onChange(this.state);
-    });
+    this.setFormState(state);
   }
 
-  syncValidate(model) {
-    const { validate } = this.props;
+  syncValidate(state) {
+    resetSyncFormValidState(state);
 
+    const { validate } = this.props;
     if (!validate) {
       return;
     }
 
-    const errors = new FormErrors();
-    validate(model, errors);
-    return errors;
+    const formErrors = validate(state.model);
+    console.log(state.model, formErrors);
+    updateSyncFormValidStateWithErrors(state, formErrors);
   }
 
-  asyncValidate(fieldName, value) {
-    const { asyncFieldValidators } = this.props;
-
-    const asyncValidate = asyncFieldValidators[fieldName];
-    if (!asyncValidate) {
-      return false;
+  asyncValidateField(state, fieldName) {
+    const { asyncValidating } = getFieldState(state, fieldName);
+    if (asyncValidating) {
+      // already async validating, nothing to do
+      return;
     }
 
-    const errors = new FormErrors();
-    const validation = asyncValidate(value, errors);
-    Promise.resolve(validation).then(errors => {
-      if (errors instanceof FormErrors && errors.hasAnyErrors()) {
-        const state = clone(this.state);
-        updateValidState(state, errors);
-        this.setState(state, () => {
-          const { onChange } = this.props;
-          onChange(this.state);
-        });
-      }
+    const { asyncValidateField } = this.props;
+    const asyncValidate = asyncValidateField[fieldName];
+    if (!asyncValidate) {
+      // no async field validation defined, nothing to do
+      return;
+    }
+
+    updateFieldState(state, fieldName, { asyncValidating: true });
+
+    const value = getFieldValue(state, fieldName);
+    const promisedResult = asyncValidate(value);
+
+    Promise.resolve(promisedResult).then(() => {
+      // field is valid
+      const state = clone(this.state);
+      resetAsyncFieldValidState(state, fieldName);
+      updateFieldState(state, fieldName, { asyncValidating: false });
+      this.setFormState(state);
+    }, (asyncErrors) => {
+      // field is invalid
+      const state = clone(this.state);
+      updateAsyncFieldValidStateWithErrors(state, fieldName, asyncErrors);
+      updateFieldState(state, fieldName, { asyncValidating: false });
+      this.setFormState(state);
     });
   }
 
@@ -218,9 +340,7 @@ class Form extends Component {
   }
 
   render() {
-    console.debug(JSON.stringify(this.state, null, 2));
-
-    const { children, ...forwardedProps } = omit(this.props, 'model', 'validate', 'asyncFieldValidators', 'onChange', 'onSubmit');
+    const { children, ...forwardedProps } = omit(this.props, 'model', 'validate', 'asyncValidateField', 'onChange', 'onSubmit');
     return (
       <form
         {...forwardedProps}
@@ -237,7 +357,7 @@ class Form extends Component {
 Form.propTypes = {
   model: PropTypes.object,
   validate: PropTypes.func,
-  asyncFieldValidators: PropTypes.object,
+  asyncValidateField: PropTypes.object,
   onChange: PropTypes.func,
   onSubmit: PropTypes.func,
 };
@@ -245,7 +365,7 @@ Form.propTypes = {
 Form.defaultProps = {
   model: {},
   validate: noop,
-  asyncFieldValidators: {},
+  asyncValidateField: {},
   onChange: noop,
   onSubmit: noop
 };
